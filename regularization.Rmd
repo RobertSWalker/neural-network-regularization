@@ -1,0 +1,121 @@
+---
+title: "Regularization"
+author: "Rob Walker"
+output: html_document
+---
+
+# Handwritten digits
+- Classify pictures of numbers from 0-9
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2); library(cowplot); library(keras)
+mnist <- dataset_mnist()
+x_train <- mnist$train$x
+y_train <- mnist$train$y
+x_test <- mnist$test$x
+y_test <- mnist$test$y
+use_session_with_seed(19)
+x_train <- array_reshape(x_train, c(nrow(x_train), 28^2))
+x_test <- array_reshape(x_test, c(nrow(x_test), 28^2))
+x_train <- x_train / 255
+x_test <- x_test / 255
+y_train <- to_categorical(y_train, 10)
+y_test <- to_categorical(y_test, 10)
+```
+
+# Define Keras model
+- Try to overfit
+
+```{r}
+model <- keras_model_sequential() 
+model %>% 
+  layer_dense(units = 256, activation = 'relu', input_shape = dim(x_train)[2]) %>% 
+  layer_dense(units = 128, activation = 'relu') %>%
+  layer_dense(units = 64, activation = 'relu') %>%
+  layer_dense(units = 10, activation = 'softmax')
+model
+
+```
+
+# Compile the model
+
+```{r}
+model %>% compile( loss = "categorical_crossentropy", 
+                   optimizer = optimizer_rmsprop(),
+                   metrics = 'accuracy')
+
+```
+
+# Train the model
+- overfitting seen in the loss
+
+```{r, results="hide"}
+history <- model %>% fit( x_train, y_train, epochs = 20, verbose = 1,
+                          batch_size = 128, validation_split = 0.2)
+plot(history)
+
+
+```
+
+# Train vs Test
+- overfitting seen in loss
+
+```{r}
+#model %>% predict_classes(x_test)
+model %>% evaluate(x_train, y_train)
+model %>% evaluate(x_test, y_test)
+
+```
+
+
+# Define new Keras model
+- Add regularization
+- Add dropout layers
+
+```{r}
+model <- keras_model_sequential() 
+model %>% 
+  layer_dense(units = 256, activation = 'relu', regularizer_l1_l2(), 
+              input_shape = dim(x_train)[2]) %>% 
+  layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 128, regularizer_l1_l2(), activation = 'relu') %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 64, regularizer_l1_l2(), activation = 'relu') %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 10, regularizer_l1_l2(), activation = 'softmax')
+model
+
+```
+
+# Compile the model
+
+```{r}
+model %>% compile( loss = "categorical_crossentropy", 
+                   optimizer = optimizer_rmsprop(),
+                   metrics = 'accuracy')
+
+```
+
+# Train the model
+
+```{r, results="hide"}
+history <- model %>% fit( x_train, y_train, epochs = 20, verbose = 1,
+                          batch_size = 128, validation_split = 0.2)
+plot(history)
+
+
+```
+
+# Train vs Test
+
+```{r}
+model %>% evaluate(x_train, y_train)
+model %>% evaluate(x_test, y_test)
+
+```
+
+# Summary
+- It's easy to overfit with neural networks because they have so many weights
+- 4 main weapons 1) regularization, 2) dropout, 3) stopping early, 4) tune hyperparameters (fewer neurons, fewer layers)
+- Can you improve on the train and test metrics?
